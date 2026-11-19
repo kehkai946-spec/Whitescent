@@ -1,0 +1,103 @@
+// hn_02_psych_detail.js
+// 2번 모듈: 인간 심리 미세 신호 디테일 포착 + 직접적 조언 + 구시대 멘트 차단
+// 대상 모델 코어: gemini-4-neon, gemini-4-hydrogen
+
+const bus = window.HydrogenNeonBus;
+const { soul, config } = bus.getState();
+
+// 기본 설정 초기화 (직설성 강도 및 구시대 멘트 차단 ON)
+if (!config.extraConfig.psychDirectness) {
+  config.extraConfig.psychDirectness = "sharp"; // sharp | standard
+}
+if (typeof config.extraConfig.banCliche !== "boolean") {
+  config.extraConfig.banCliche = true;
+}
+
+const ANTI_CLICHE_RULES = `
+[구시대적·상투적 상담 멘트 절대 금지 규칙]
+1. 다음 유형의 뻔하고 겉도는 표현을 출력에 절대 사용하지 마라:
+   - "마음이 많이 힘드셨겠어요", "충분히 그럴 수 있어요", "상대방 입장에서도 생각해 보세요", "진심은 언젠가 통할 거예요", "솔직하게 대화를 나눠보는 건 어떨까요?" 같은 교과서식·구시대 상담 문투.
+   - 감정을 뭉뚱그려 위로만 하고 핵심 행동 방향을 회피하는 뜬구름 잡는 결론.
+2. 말투는 감정을 과장하거나 훈계하지 말고, 핵심을 꿰뚫는 예리하고 담백한 분석가 톤을 유지하라.
+`;
+
+const PSYCH_DETAIL_PROTOCOL = `
+[인간 심리 미세 디테일 및 직접적 조언 프로토콜]
+사용자의 연애·대인관계·심리 고민을 다룰 때는 반드시 아래 4단계를 구조화해 답하라:
+
+1. [사실과 해석의 냉정한 분리]
+   - 실제 일어난 행동·대화(팩트)와 사용자가 불안·기대 속에서 추측한 의미를 칼같이 분리하라.
+
+2. [미세 신호(Micro-Signal) 해부]
+   - 표면 사건 뒤에 숨은 디테일을 짚어라:
+     * 문장 길이·어미 변화(예: 'ㅋㅋ/이모티콘' 감소, 마침표 사용, 단답형 방어)
+     * 답장 템포와 주도권(질문이 사라진 반응형 답장인지, 대화를 이어가려는 의지가 있는지)
+     * 방어기제와 내면 동기(자존심 보호, 거절 두려움, 회피 애착, 확인 욕구, 권태·거리 조절)
+     * 관계 속 의존도 및 감정 투자 비대칭
+
+3. [다각적 심리 가설 (단정 금지)]
+   - 가장 현실적인 가설 2~3가지를 제시하고, 각 가설이 맞을 때 나타나는 추가 징후를 함께 짚어라.
+
+4. [직접적 행동 조언 및 시나리오]
+   - 빙빙 돌리지 말고 지금 당장 취할 수 있는 구체적 행동(연락 빈도 조절, 태도 전환, 보낼 수 있는 실제 메시지 예시 1~2개)을 제시하라.
+   - 그 행동을 했을 때 상대가 보일 예상 반응(긍정/회피/방어)과 다음 대응까지 연결하라.
+   - 단, 상대를 조종·가스라이팅하거나 사생활을 침해·감시하는 행동은 절대 권하지 마라.
+`;
+
+// 1번 코어의 시스템 프롬프트 뒤에 2번 모듈 규칙 자동 결합
+bus.registerPromptHook((promptText) => {
+  const activeModel = config.geminiModel || "gemini-4-neon";
+  const modelRoleNote = activeModel === "gemini-4-hydrogen"
+    ? "\n[엔진 성향: gemini-4-hydrogen] 구조적·기초적 관계 역학과 행동 선택지 도출에 초점을 맞춰 명확하게 정리하라."
+    : "\n[엔진 성향: gemini-4-neon] 미세한 감정·말투·심리 신호의 결을 예리하게 포착해 직설적으로 분석하라.";
+
+  const directnessNote = config.extraConfig.psychDirectness === "sharp"
+    ? "\n[직설성 강도: SHARP] 돌려 말하지 말고, 사용자가 듣기 불편할 수 있는 관계의 냉정한 현실(예: 우선순위 밀림, 감정 온도 차)도 근거와 함께 직설적으로 짚어라."
+    : "\n[직설성 강도: STANDARD] 객관적 현실과 선택지를 명확하고 차분하게 짚어라.";
+
+  const clicheBlock = config.extraConfig.banCliche ? ANTI_CLICHE_RULES : "";
+
+  return `${promptText}\n\n${clicheBlock}\n${PSYCH_DETAIL_PROTOCOL}${modelRoleNote}${directnessNote}`;
+});
+
+// 우측 설정·기억 서랍에 2번 모듈 전용 컨트롤 추가
+function renderPsychModuleDrawer() {
+  bus.addDrawerSection("psych_detail", "2. 심리 디테일·직설성 엔진", (container) => {
+    container.innerHTML = `
+      <p>구시대적 위로 멘트를 차단하고, 말투·템포·방어기제 디테일과 직접적 행동 조언을 강제합니다.</p>
+      <label style="display:block;margin-top:8px;">조언 직설성 강도</label>
+      <select id="hnDirectnessSelect" style="width:100%;margin-top:4px;">
+        <option value="sharp">직설·예리 모드 (현실 온도 차·핵심 직시)</option>
+        <option value="standard">균형 분석 모드 (객관적 현실·선택지 중심)</option>
+      </select>
+      <label style="display:flex;align-items:center;gap:6px;margin-top:8px;">
+        <input type="checkbox" id="hnBanClicheCheck" />
+        구시대·상투적 상담 멘트 원천 차단
+      </label>
+    `;
+
+    const dirSel = document.getElementById("hnDirectnessSelect");
+    const clicheChk = document.getElementById("hnBanClicheCheck");
+
+    dirSel.value = config.extraConfig.psychDirectness || "sharp";
+    clicheChk.checked = config.extraConfig.banCliche !== false;
+
+    dirSel.addEventListener("change", () => {
+      config.extraConfig.psychDirectness = dirSel.value;
+      bus.saveConfig();
+    });
+
+    clicheChk.addEventListener("change", () => {
+      config.extraConfig.banCliche = clicheChk.checked;
+      bus.saveConfig();
+    });
+  });
+}
+
+renderPsychModuleDrawer();
+bus.appendMessage(
+  "ai",
+  `2번 모듈(심리 미세 디테일·직접 조언·상투어 차단) 결합 완료. (현재 Gen-${soul.generation} / ${config.geminiModel || "gemini-4-neon"})`,
+  "2번 모듈 로드됨",
+  false
+);
