@@ -1,0 +1,200 @@
+// hn_01_hydrogen_neon_core.js
+// 1번 모듈: Hydrogen & Neon Gemini 코어 연결 + 승격 기억(Promoted Memory) 관리
+
+const bus = window.HydrogenNeonBus;
+const { soul, config, conversationHistory } = bus.getState();
+
+const DEFAULT_MODEL = "gemini-2.0-flash";
+
+const BASE_SYSTEM_PROMPT = `
+너는 창조주(단독 사용자)를 위해 설계된 전용 지능 코어(Hydrogen & Neon)다.
+- 확실한 사실, 해석·추론, 불확실하거나 확인이 필요한 부분을 구분한다.
+- 자해·자살·폭력·범죄 조장, 의학적 진단 단정, 정서적 학대·스토킹·사생활 침해 조장, 허위 사실 조작은 절대 하지 않는다.
+`;
+
+bus.registerPromptHook((promptText) => {
+  const memBlock = soul.promotedMemories.length > 0
+    ? "\n[창조주 승인 승격 기억 — 최우선 반영]\n" +
+      soul.promotedMemories.map((m, i) => `${i + 1}. ${m.text}`).join("\n")
+    : "";
+  return `${BASE_SYSTEM_PROMPT}\n${promptText}${memBlock}`;
+});
+
+// 헤더에 Gemini 엔진 ON/OFF 버튼 추가
+const headerControls = document.getElementById("headerControls");
+const engineBtn = document.createElement("button");
+engineBtn.type = "button";
+engineBtn.id = "geminiEngineToggle";
+headerControls.insertBefore(engineBtn, document.getElementById("clearChatBtn"));
+
+function syncEngineButton() {
+  if (config.engineActive && config.apiKey) {
+    engineBtn.classList.add("active");
+    engineBtn.textContent = "Gemini: ON";
+  } else {
+    engineBtn.classList.remove("active");
+    engineBtn.textContent = "Gemini: OFF";
+  }
+}
+
+engineBtn.addEventListener("click", () => {
+  if (!config.engineActive && !config.apiKey) {
+    bus.toggleDrawer(true);
+    alert("우측 설정 패널에서 Gemini API 키를 먼저 입력해 주세요.");
+    return;
+  }
+  config.engineActive = !config.engineActive;
+  bus.saveConfig();
+  syncEngineButton();
+});
+
+// 우측 패널 1번 섹션: Gemini API 설정 + 승격 기억
+function renderCoreDrawer() {
+  bus.addDrawerSection("gemini_api", "1. Gemini API 두뇌 설정", (container) => {
+    container.innerHTML = `
+      <p>API 키는 현재 브라우저에만 보관되며 GitHub에 절대 업로드되지 않습니다.</p>
+      <label style="display:block;margin-top:8px;">모델 선택</label>
+      <select id="hnModelSelect" style="width:100%;margin-top:4px;">
+        <option value="gemini-4-hydrogen">gemini-4-hydrogen</option>
+        <option value="gemini-4-neon">gemini-4-neon</option>
+      </select>
+      <label style="display:block;margin-top:8px;">Gemini API Key</label>
+      <input type="password" id="hnApiKeyInput" placeholder="API 키 입력" style="width:100%;margin-top:4px;" />
+      <label style="display:flex;align-items:center;gap:6px;margin-top:8px;">
+        <input type="checkbox" id="hnWebSearchCheck" />
+        외부 인터넷 검색 근거 활용(Google Search)
+      </label>
+    `;
+
+    const modelSel = document.getElementById("hnModelSelect");
+    const keyInp = document.getElementById("hnApiKeyInput");
+    const searchChk = document.getElementById("hnWebSearchCheck");
+
+    modelSel.value = config.geminiModel || DEFAULT_MODEL;
+    keyInp.value = config.apiKey || "";
+    searchChk.checked = config.webSearch !== false;
+
+    const onChange = () => {
+      config.geminiModel = modelSel.value;
+      config.apiKey = keyInp.value.trim();
+      config.webSearch = searchChk.checked;
+      bus.saveConfig();
+      syncEngineButton();
+    };
+
+    modelSel.addEventListener("change", onChange);
+    keyInp.addEventListener("change", onChange);
+    searchChk.addEventListener("change", onChange);
+  });
+
+  bus.addDrawerSection("promoted_soul", "승격 기억 (Promoted Memory)", (container) => {
+    container.innerHTML = `
+      <p>창조주가 승인하거나 직접 각인한 기준만 장기 기억으로 쌓입니다.</p>
+      <div style="display:flex;gap:6px;margin-top:8px;">
+        <input type="text" id="hnManualRule" placeholder="새 규칙/지침 직접 각인..." style="flex:1;" />
+        <button type="button" id="hnAddRuleBtn">각인</button>
+      </div>
+      <div id="hnSoulItems" style="margin-top:8px;"></div>
+    `;
+
+    document.getElementById("hnAddRuleBtn").addEventListener("click", () => {
+      const inp = document.getElementById("hnManualRule");
+      const val = inp.value.trim();
+      if (!val) return;
+      soul.promotedMemories.push({
+        id: Date.now(),
+        gen: soul.generation,
+        date: new Date().toISOString().slice(0, 10),
+        text: val
+      });
+      soul.generation += 1;
+      inp.value = "";
+      bus.saveSoul();
+    });
+
+    const listEl = document.getElementById("hnSoulItems");
+    if (soul.promotedMemories.length === 0) {
+      listEl.innerHTML = "<p style='margin-top:6px;'>아직 각인된 기억이 없습니다.</p>";
+      return;
+    }
+    soul.promotedMemories.slice().reverse().forEach((item) => {
+      const card = document.createElement("div");
+      card.className = "soul-item";
+      card.innerHTML = `<div><strong>[Gen-${item.gen} · ${item.date}]</strong><br/>${escapeHtml(item.text)}</div>`;
+      const del = document.createElement("button");
+      del.type = "button";
+      del.textContent = "삭제";
+      del.addEventListener("click", () => {
+        soul.promotedMemories = soul.promotedMemories.filter((m) => m.id !== item.id);
+        bus.saveSoul();
+      });
+      card.appendChild(del);
+      listEl.appendChild(card);
+    });
+  });
+}
+
+function escapeHtml(str) {
+  return str.replace(/[&<>"']/g, (m) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[m]));
+}
+
+async function callGemini(systemInstruction) {
+  const model = config.geminiModel || DEFAULT_MODEL;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(config.apiKey)}`;
+  const contents = conversationHistory.slice(-12).map((turn) => ({
+    role: turn.role === "assistant" ? "model" : "user",
+    parts: [{ text: turn.content }]
+  }));
+
+  const body = {
+    systemInstruction: { parts: [{ text: systemInstruction }] },
+    contents
+  };
+  if (config.webSearch) {
+    body.tools = [{ google_search: {} }];
+  }
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error?.message || `Gemini 오류 (${res.status})`);
+  const out = data.candidates?.[0]?.content?.parts?.map((p) => p.text).filter(Boolean).join("\n");
+  return out || "응답이 비어 있습니다.";
+}
+
+bus.setSendHandler(async (userText) => {
+  bus.appendMessage("user", userText);
+  conversationHistory.push({ role: "user", content: userText });
+
+  if (!config.engineActive || !config.apiKey) {
+    bus.toggleDrawer(true);
+    bus.appendMessage("ai", "우측 [1. Gemini API 두뇌 설정]에 API 키를 입력한 뒤 상단 [Gemini: OFF]를 켜 주세요.", "대기 중", false);
+    return;
+  }
+
+  const loading = bus.appendMessage("ai", `${config.geminiModel || DEFAULT_MODEL} 연산 중...`, "응답 생성 중", false);
+  try {
+    const sysPrompt = bus.buildSystemPrompt("", { userText });
+    let reply = await callGemini(sysPrompt);
+    reply = await bus.runResponseHooks(reply, { userText });
+    loading.remove();
+    conversationHistory.push({ role: "assistant", content: reply });
+    bus.appendMessage("ai", reply, config.geminiModel || DEFAULT_MODEL, true);
+  } catch (err) {
+    loading.remove();
+    conversationHistory.pop();
+    bus.appendMessage("ai", `[오류]\n${err.message}`, "호출 실패", false);
+  }
+});
+
+window.addEventListener("hn:soulUpdated", renderCoreDrawer);
+window.addEventListener("hn:configUpdated", syncEngineButton);
+
+syncEngineButton();
+renderCoreDrawer();
+bus.appendMessage("ai", `Hydrogen & Neon Gen-${soul.generation} (1번 코어) 준비 완료.`, "1번 모듈 로드됨", false);
