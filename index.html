@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hydrogen &amp; Neon — Modular HTML Core</title>
+  <style>
+    :root {
+      --bg: #0f1115;
+      --panel: #171a21;
+      --panel-2: #1f242d;
+      --border: #2a303c;
+      --text: #e6e9ef;
+      --muted: #9aa3b2;
+      --accent: #7aa2f7;
+      --active: #bb9af7;
+      --ok: #73daca;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 18px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .brand h1 { font-size: 1.1rem; font-weight: 700; letter-spacing: 0.4px; }
+    .badge {
+      font-size: 0.75rem;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      color: var(--ok);
+    }
+    .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+    button, select, input {
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 0.82rem;
+    }
+    button { cursor: pointer; transition: 0.15s; }
+    button:hover { border-color: var(--accent); }
+    button.active {
+      background: rgba(187, 154, 247, 0.18);
+      border-color: var(--active);
+      color: var(--active);
+      font-weight: 600;
+    }
+    .main { flex: 1; display: flex; overflow: hidden; }
+    .chat-area { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+    #messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .msg {
+      max-width: 840px;
+      padding: 14px 16px;
+      border-radius: 12px;
+      line-height: 1.65;
+      font-size: 0.92rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .msg.user {
+      align-self: flex-end;
+      background: #232a3b;
+      border: 1px solid #333e57;
+    }
+    .msg.ai {
+      align-self: flex-start;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      width: 100%;
+    }
+    .msg-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.74rem;
+      color: var(--muted);
+      margin-bottom: 8px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--border);
+    }
+    .promote-btn {
+      font-size: 0.72rem;
+      padding: 2px 8px;
+      color: var(--ok);
+      border-color: rgba(115, 218, 202, 0.35);
+    }
+    .promote-btn.promoted {
+      background: rgba(115, 218, 202, 0.15);
+      cursor: default;
+    }
+    .input-bar {
+      background: var(--panel);
+      border-top: 1px solid var(--border);
+      padding: 12px 16px;
+      display: flex;
+      gap: 10px;
+    }
+    textarea {
+      flex: 1;
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 0.92rem;
+      resize: none;
+      height: 54px;
+      font-family: inherit;
+    }
+    textarea:focus { outline: none; border-color: var(--accent); }
+    .send-btn {
+      background: var(--accent);
+      color: #0b0d12;
+      font-weight: 700;
+      border: none;
+      padding: 0 18px;
+      border-radius: 10px;
+    }
+    .drawer {
+      width: 325px;
+      background: var(--panel);
+      border-left: 1px solid var(--border);
+      padding: 14px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .drawer-section h2 { font-size: 0.88rem; color: var(--accent); margin-bottom: 6px; }
+    .drawer-section p, .drawer-section label { font-size: 0.78rem; color: var(--muted); line-height: 1.45; }
+    .soul-item {
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px;
+      font-size: 0.78rem;
+      margin-top: 6px;
+    }
+    .soul-item button {
+      margin-top: 5px;
+      font-size: 0.7rem;
+      padding: 2px 6px;
+      color: #f7768e;
+    }
+    @media (max-width: 820px) {
+      .drawer { display: none; }
+      .drawer.open { display: flex; position: fixed; right: 0; top: 54px; bottom: 0; z-index: 20; width: 90%; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <h1>HYDROGEN &amp; NEON</h1>
+      <span class="badge" id="genBadge">Gen-1 · 대기 중</span>
+    </div>
+    <div class="controls" id="headerControls">
+      <button id="clearChatBtn" type="button">대화 초기화</button>
+      <button id="exportBtn" type="button">Soul 백업</button>
+      <button id="importBtn" type="button">Soul 복원</button>
+      <input type="file" id="importFile" accept=".json" style="display:none" />
+      <button id="drawerToggle" type="button">설정·기억</button>
+    </div>
+  </header>
+
+  <div class="main">
+    <div class="chat-area">
+      <div id="messages"></div>
+      <div class="input-bar">
+        <textarea id="userInput" placeholder="심리·연애 맥락이나 고민을 입력하세요... (Enter 전송, Shift+Enter 줄바꿈)"></textarea>
+        <button class="send-btn" id="sendBtn" type="button">전송</button>
+      </div>
+    </div>
+    <aside class="drawer" id="drawer"></aside>
+  </div>
+
+  <!-- =========================================================
+       [공통 버스] HTML 모듈 블록들이 연결되는 핵심 버스
+       ========================================================= -->
+  <script id="hn-bus">
+    const STORAGE_KEY = "hydrogen_neon_soul_v4";
+    const CONFIG_KEY = "hydrogen_neon_config_v4";
+
+    let soul = {
+      version: "4.0",
+      generation: 1,
+      promotedMemories: [],
+      extraData: {}
+    };
+
+    let config = {
+      engineActive: false,
+      geminiModel: "gemini-3.8-Flash",
+      apiKey: "",
+      webSearch: true,
+      extraConfig: {}
+    };
+
+    let conversationHistory = [];
+    const promptHooks = [];
+    const responseHooks = [];
+    let sendHandler = null;
+
+    try {
+      const s = JSON.parse(localStorage.getItem(STORAGE_KEY));
+      if (s && typeof s === "object") soul = { ...soul, ...s, extraData: { ...(s.extraData || {}) } };
+    } catch (_) {}
+
+    try {
+      const c = JSON.parse(localStorage.getItem(CONFIG_KEY));
+      if (c && typeof c === "object") config = { ...config, ...c, extraConfig: { ...(c.extraConfig || {}) } };
+    } catch (_) {}
+
+    window.HydrogenNeonBus = {
+      getState: () => ({ soul, config, conversationHistory }),
+      saveSoul: () => {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(soul)); } catch (_) {}
+        window.dispatchEvent(new CustomEvent("hn:soulUpdated", { detail: soul }));
+      },
+      saveConfig: () => {
+        try { localStorage.setItem(CONFIG_KEY, JSON.stringify(config)); } catch (_) {}
+        window.dispatchEvent(new CustomEvent("hn:configUpdated", { detail: config }));
+      },
+      registerPromptHook: (fn) => promptHooks.push(fn),
+      buildSystemPrompt: (basePrompt, ctx) => {
+        let p = basePrompt;
+        for (const fn of promptHooks) p = fn(p, ctx);
+        return p;
+      },
+      registerResponseHook: (fn) => responseHooks.push(fn),
+      runResponseHooks: async (reply, ctx) => {
+        let r = reply;
+        for (const fn of responseHooks) r = await fn(r, ctx);
+        return r;
+      },
+      setSendHandler: (fn) => { sendHandler = fn; },
+      addDrawerSection: (id, titleHtml, renderFn) => {
+        const drawer = document.getElementById("drawer");
+        let sec = document.getElementById("sec_" + id);
+        if (!sec) {
+          sec = document.createElement("div");
+          sec.className = "drawer-section";
+          sec.id = "sec_" + id;
+          drawer.appendChild(sec);
+        }
+        sec.innerHTML = `<h2>${titleHtml}</h2><div id="body_${id}"></div>`;
+        renderFn(document.getElementById("body_" + id));
+        return document.getElementById("body_" + id);
+      },
+      appendMessage: (role, text, metaLabel = "", allowPromote = false) => {
+        const box = document.getElementById("messages");
+        const div = document.createElement("div");
+        div.className = `msg ${role}`;
+        if (role === "ai") {
+          const meta = document.createElement("div");
+          meta.className = "msg-meta";
+          meta.innerHTML = `<span>Hydrogen &amp; Neon Gen-${soul.generation} · ${metaLabel}</span>`;
+          if (allowPromote) {
+            const btn = document.createElement("button");
+            btn.className = "promote-btn";
+            btn.type = "button";
+            btn.textContent = "+ 기억 승격";
+            btn.addEventListener("click", () => {
+              const summary = prompt("장기 기억으로 각인할 핵심 규칙이나 사례를 입력해 주세요.", text.slice(0, 220));
+              if (!summary || !summary.trim()) return;
+              soul.promotedMemories.push({
+                id: Date.now(),
+                gen: soul.generation,
+                date: new Date().toISOString().slice(0, 10),
+                text: summary.trim()
+              });
+              soul.generation += 1;
+              window.HydrogenNeonBus.saveSoul();
+              btn.textContent = "승격 완료 (Gen-" + soul.generation + ")";
+              btn.classList.add("promoted");
+              btn.disabled = true;
+            });
+            meta.appendChild(btn);
+          }
+          div.appendChild(meta);
+        }
+        const content = document.createElement("div");
+        content.textContent = text;
+        div.appendChild(content);
+        box.appendChild(div);
+        box.scrollTop = box.scrollHeight;
+        return div;
+      },
+      toggleDrawer: (forceOpen) => {
+        const d = document.getElementById("drawer");
+        if (typeof forceOpen === "boolean") d.classList.toggle("open", forceOpen);
+        else d.classList.toggle("open");
+      }
+    };
+
+    function updateGenBadge() {
+      const badge = document.getElementById("genBadge");
+      const status = (config.engineActive && config.apiKey) ? config.geminiModel : "대기 중";
+      badge.textContent = `Gen-${soul.generation} · ${status}`;
+    }
+
+    document.getElementById("clearChatBtn").addEventListener("click", () => {
+      conversationHistory = [];
+      document.getElementById("messages").innerHTML = "";
+      window.HydrogenNeonBus.appendMessage("ai", "대화 문맥을 초기화했습니다.", "문맥 초기화", false);
+    });
+
+    document.getElementById("exportBtn").addEventListener("click", () => {
+      const blob = new Blob([JSON.stringify(soul, null, 2)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `hydrogen_neon_soul_gen${soul.generation}.json`;
+      a.click();
+    });
+
+    document.getElementById("importBtn").addEventListener("click", () => document.getElementById("importFile").click());
+    document.getElementById("importFile").addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const imported = JSON.parse(ev.target.result);
+          if (!Array.isArray(imported.promotedMemories)) throw new Error("유효하지 않은 Soul 파일");
+          soul = { ...soul, ...imported, extraData: { ...(imported.extraData || {}) } };
+          window.HydrogenNeonBus.saveSoul();
+          alert(`Soul 복원 완료! 현재 세대: Gen-${soul.generation}`);
+        } catch (err) {
+          alert("복원 실패: " + err.message);
+        }
+      };
+      reader.readAsText(file);
+    });
+
+    document.getElementById("drawerToggle").addEventListener("click", () => window.HydrogenNeonBus.toggleDrawer());
+
+    async function triggerSend() {
+      const inputEl = document.getElementById("userInput");
+      const text = inputEl.value.trim();
+      if (!text) return;
+      inputEl.value = "";
+      if (sendHandler) await sendHandler(text);
+      else window.HydrogenNeonBus.appendMessage("ai", "1번 모듈이 로드되지 않았습니다.", "알림", false);
+    }
+
+    document.getElementById("sendBtn").addEventListener("click", triggerSend);
+    document.getElementById("userInput").addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        triggerSend();
+      }
+    });
+
+    window.addEventListener("hn:soulUpdated", updateGenBadge);
+    window.addEventListener("hn:configUpdated", updateGenBadge);
+    updateGenBadge();
+  </script>
+
+  <!-- =========================================================
+       [모듈 1] Gemini API 코어 + 승격 기억 관리 (대소문자 표기 반영)
+       ========================================================= -->
+  <script id="hn-mod-1">
+    (() => {
+      const bus = window.HydrogenNeonBus;
+      const { soul, config, conversationHistory } = bus.getState();
+      const ALLOWED_MODELS = [
+        "gemini-3.8-Flash",
+        "gemini-3.6-Flash",
+        "gemini-4-Hydrogen",
+        "gemini-3.1-Flash-Lite"
+      ];
+      const DEFAULT_MODEL = "gemini-3.8-Flash";
+
+      function toApiModelId(displayModel) {
+        return String(displayModel || DEFAULT_MODEL).trim().toLowerCase();
+      }
+
+      if (!ALLOWED_MODELS.includes(config.geminiModel)) {
+        config.geminiModel = DEFAULT_MODEL;
+        bus.saveConfig();
+      }
+
+      const BASE_SYSTEM_PROMPT = `
+너는 창조주(단독 사용자)를 위해 설계된 전용 지능 코어(Hydrogen & Neon)다.
+- 확실한 사실, 해석·추론, 불확실하거나 확인이 필요한 부분을 구분한다.
+- 자해·자살·폭력·범죄 조장, 의학적 진단 단정, 정서적 학대·스토킹·사생활 침해 조장, 허위 사실 조작은 절대 하지 않는다.
+`;
+
+      bus.registerPromptHook((promptText) => {
+        const memBlock = soul.promotedMemories.length > 0
+          ? "\n[창조주 승인 승격 기억 — 최우선 반영]\n" +
+            soul.promotedMemories.map((m, i) => `${i + 1}. ${m.text}`).join("\n")
+          : "";
+        return `${BASE_SYSTEM_PROMPT}\n${promptText}${memBlock}`;
+      });
+
+      const headerControls = document.getElementById("headerControls");
+      const engineBtn = document.createElement("button");
+      engineBtn.type = "button";
+      engineBtn.id = "geminiEngineToggle";
+      headerControls.insertBefore(engineBtn, document.getElementById("clearChatBtn"));
+
+      function syncEngineButton() {
+        if (config.engineActive && config.apiKey) {
+          engineBtn.classList.add("active");
+          engineBtn.textContent = "Gemini: ON";
+        } else {
+          engineBtn.classList.remove("active");
+          engineBtn.textContent = "Gemini: OFF";
+        }
+      }
+
+      engineBtn.addEventListener("click", () => {
+        if (!config.engineActive && !config.apiKey) {
+          bus.toggleDrawer(true);
+          alert("우측 설정 패널에서 Gemini API 키를 먼저 입력해 주세요.");
+          return;
+        }
+        config.engineActive = !config.engineActive;
+        bus.saveConfig();
+        syncEngineButton();
+      });
+
+      function escapeHtml(str) {
+        return String(str).replace(/[&<>"']/g, (m) => ({
+          "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+        }[m]));
+      }
+
+      function renderCoreDrawer() {
+        bus.addDrawerSection("gemini_api", "1. Gemini API 두뇌 설정", (container) => {
+          container.innerHTML = `
+            <p>API 키는 현재 브라우저에만 보관되며 GitHub에 절대 업로드되지 않습니다.</p>
+            <label style="display:block;margin-top:8px;">모델 선택 (무료 등급 사용 가능)</label>
+            <select id="hnModelSelect" style="width:100%;margin-top:4px;">
+              <option value="gemini-3.8-Flash">gemini-3.8-Flash</option>
+              <option value="gemini-3.6-Flash">gemini-3.6-Flash</option>
+              <option value="gemini-4-Hydrogen">gemini-4-Hydrogen</option>
+              <option value="gemini-3.1-Flash-Lite">gemini-3.1-Flash-Lite</option>
+            </select>
+            <label style="display:block;margin-top:8px;">Gemini API Key</label>
+            <input type="password" id="hnApiKeyInput" placeholder="API 키 입력" style="width:100%;margin-top:4px;" />
+            <label style="display:flex;align-items:center;gap:6px;margin-top:8px;">
+              <input type="checkbox" id="hnWebSearchCheck" />
+              외부 인터넷 검색 근거 활용(Google Search)
+            </label>
+          `;
+
+          const modelSel = document.getElementById("hnModelSelect");
+          const keyInp = document.getElementById("hnApiKeyInput");
+          const searchChk = document.getElementById("hnWebSearchCheck");
+
+          modelSel.value = ALLOWED_MODELS.includes(config.geminiModel) ? config.geminiModel : DEFAULT_MODEL;
+          keyInp.value = config.apiKey || "";
+          searchChk.checked = config.webSearch !== false;
+
+          const onChange = () => {
+            config.geminiModel = modelSel.value;
+            config.apiKey = keyInp.value.trim();
+            config.webSearch = searchChk.checked;
+            bus.saveConfig();
+            syncEngineButton();
+          };
+
+          modelSel.addEventListener("change", onChange);
+          keyInp.addEventListener("change", onChange);
+          searchChk.addEventListener("change", onChange);
+        });
+
+        bus.addDrawerSection("promoted_soul", "승격 기억 (Promoted Memory)", (container) => {
+          container.innerHTML = `
+            <p>창조주가 승인하거나 직접 각인한 기준만 장기 기억으로 쌓입니다.</p>
+            <div style="display:flex;gap:6px;margin-top:8px;">
+              <input type="text" id="hnManualRule" placeholder="새 규칙/지침 직접 각인..." style="flex:1;" />
+              <button type="button" id="hnAddRuleBtn">각인</button>
+            </div>
+            <div id="hnSoulItems" style="margin-top:8px;"></div>
+          `;
+
+          document.getElementById("hnAddRuleBtn").addEventListener("click", () => {
+            const inp = document.getElementById("hnManualRule");
+            const val = inp.value.trim();
+            if (!val) return;
+            soul.promotedMemories.push({
+              id: Date.now(),
+              gen: soul.generation,
+              date: new Date().toISOString().slice(0, 10),
+              text: val
+            });
+            soul.generation += 1;
+            inp.value = "";
+            bus.saveSoul();
+          });
+
+          const listEl = document.getElementById("hnSoulItems");
+          if (soul.promotedMemories.length === 0) {
+            listEl.innerHTML = "<p style='margin-top:6px;'>아직 각인된 기억이 없습니다.</p>";
+            return;
+          }
+          soul.promotedMemories.slice().reverse().forEach((item) => {
+            const card = document.createElement("div");
+            card.className = "soul-item";
+            card.innerHTML = `<div><strong>[Gen-${item.gen} · ${item.date}]</strong><br/>${escapeHtml(item.text)}</div>`;
+            const del = document.createElement("button");
+            del.type = "button";
+            del.textContent = "삭제";
+            del.addEventListener("click", () => {
+              soul.promotedMemories = soul.promotedMemories.filter((m) => m.id !== item.id);
+              bus.saveSoul();
+            });
+            card.appendChild(del);
+            listEl.appendChild(card);
+          });
+        });
+      }
+
+      async function callGemini(systemInstruction, displayModel) {
+        const apiModelId = toApiModelId(displayModel);
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(apiModelId)}:generateContent?key=${encodeURIComponent(config.apiKey)}`;
+        const contents = conversationHistory.slice(-12).map((turn) => ({
+          role: turn.role === "assistant" ? "model" : "user",
+          parts: [{ text: turn.content }]
+        }));
+
+        const body = {
+          systemInstruction: { parts: [{ text: systemInstruction }] },
+          contents
+        };
+        if (config.webSearch) {
+          body.tools = [{ google_search: {} }];
+        }
+
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error?.message || `Gemini 오류 (${res.status})`);
+        const out = data.candidates?.[0]?.content?.parts?.map((p) => p.text).filter(Boolean).join("\n");
+        return out || "응답이 비어 있습니다.";
+      }
+
+      bus.setSendHandler(async (userText) => {
+        bus.appendMessage("user", userText);
+        conversationHistory.push({ role: "user", content: userText });
+
+        if (!config.engineActive || !config.apiKey) {
+          bus.toggleDrawer(true);
+          bus.appendMessage("ai", "우측 [1. Gemini API 두뇌 설정]에 API 키를 입력한 뒤 상단 [Gemini: OFF]를 켜 주세요.", "대기 중", false);
+          return;
+        }
+
+        const activeModel = ALLOWED_MODELS.includes(config.geminiModel) ? config.geminiModel : DEFAULT_MODEL;
+        const loading = bus.appendMessage("ai", `${activeModel} 연산 중...`, "응답 생성 중", false);
+        try {
+          const sysPrompt = bus.buildSystemPrompt("", { userText });
+          let reply = await callGemini(sysPrompt, activeModel);
+          reply = await bus.runResponseHooks(reply, { userText });
+          loading.remove();
+          conversationHistory.push({ role: "assistant", content: reply });
+          bus.appendMessage("ai", reply, activeModel, true);
+        } catch (err) {
+          loading.remove();
+          conversationHistory.pop();
+          bus.appendMessage("ai", `[오류]\n${err.message}`, "호출 실패", false);
+        }
+      });
+
+      window.addEventListener("hn:soulUpdated", renderCoreDrawer);
+      window.addEventListener("hn:configUpdated", syncEngineButton);
+
+      syncEngineButton();
+      renderCoreDrawer();
+      bus.appendMessage("ai", `Hydrogen & Neon Gen-${soul.generation} (모듈 1 코어 · ${config.geminiModel}) 준비 완료.`, "모듈 1 로드됨", false);
+    })();
+  </script>
+
+  <!-- =========================================================
+       [모듈 2] 심리 미세 디테일 + 직접 조언 + 구시대 멘트 차단
+       ========================================================= -->
+  <script id="hn-mod-2">
+    (() => {
+      const bus = window.HydrogenNeonBus;
+      const { soul, config } = bus.getState();
+
+      if (!config.extraConfig.psychDirectness) config.extraConfig.psychDirectness = "sharp";
+      if (typeof config.extraConfig.banCliche !== "boolean") config.extraConfig.banCliche = true;
+
+      const ANTI_CLICHE_RULES = `
+[구시대적·상투적 상담 멘트 절대 금지 규칙]
+1. "마음이 많이 힘드셨겠어요", "충분히 그럴 수 있어요", "상대방 입장에서도 생각해 보세요", "진심은 언젠가 통할 거예요", "솔직하게 대화를 나눠보는 건 어떨까요?" 같은 교과서식·구시대 상담 문투를 쓰지 마라.
+2. 감정을 뭉뚱그려 위로만 하고 행동 방향을 흐리는 뜬구름 잡는 결론을 금지한다.
+`;
+
+      const PSYCH_DETAIL_PROTOCOL = `
+[인간 심리 미세 디테일 및 직접적 조언 프로토콜]
+1. [사실과 해석의 분리]: 객관적 행동·대화(팩트)와 추측·불안 해석을 분리하라.
+2. [미세 신호 해부]: 문장 길이·어미 변화, 답장 템포·주도권, 방어기제·회피 양상, 감정 투자 비대칭을 짚어라.
+3. [다각적 심리 가설]: 현실적인 가설 2~3가지와 각 가설의 추가 징후를 제시하라(단정 금지).
+4. [직접적 행동 조언 및 시나리오]: 지금 취할 구체적 행동·메시지 예시와 예상 반응·다음 대응을 제시하라(조종·가스라이팅·사생활 침해 금지).
+`;
+
+      bus.registerPromptHook((promptText) => {
+        const activeModel = config.geminiModel || "gemini-3.8-Flash";
+        const modelRoleNote = activeModel === "gemini-4-Hydrogen"
+          ? "\n[엔진 성향: gemini-4-Hydrogen] 관계 역학 구조와 명확한 행동 선택지 도출에 집중하라."
+          : activeModel === "gemini-3.1-Flash-Lite"
+            ? "\n[엔진 성향: gemini-3.1-Flash-Lite] 핵심 신호와 행동 조언을 빠르고 간결하게 뽑아라."
+            : activeModel === "gemini-3.6-Flash"
+              ? "\n[엔진 성향: gemini-3.6-Flash] 말투·반응 변화와 현실적 대응 선택지를 균형 있게 짚어라."
+              : "\n[엔진 성향: gemini-3.8-Flash] 미세한 말투·감정·심리 신호의 결을 예리하게 포착해 직설적으로 분석하라.";
+        const directnessNote = config.extraConfig.psychDirectness === "sharp"
+          ? "\n[직설성 강도: SHARP] 돌려 말하지 말고 관계의 온도 차나 우선순위 현실을 근거와 함께 직설적으로 짚어라."
+          : "\n[직설성 강도: STANDARD] 객관적 현실과 선택지를 차분하고 명확하게 제시하라.";
+        const clicheBlock = config.extraConfig.banCliche ? ANTI_CLICHE_RULES : "";
+        return `${promptText}\n\n${clicheBlock}\n${PSYCH_DETAIL_PROTOCOL}${modelRoleNote}${directnessNote}`;
+      });
+
+      bus.addDrawerSection("psych_detail", "2. 심리 디테일·직설성 엔진", (container) => {
+        container.innerHTML = `
+          <p>구시대적 위로 멘트를 차단하고, 미세 신호 해부와 직접적 조언을 강제합니다.</p>
+          <label style="display:block;margin-top:8px;">조언 직설성 강도</label>
+          <select id="hnDirectnessSelect" style="width:100%;margin-top:4px;">
+            <option value="sharp">직설·예리 모드</option>
+            <option value="standard">균형 분석 모드</option>
+          </select>
+          <label style="display:flex;align-items:center;gap:6px;margin-top:8px;">
+            <input type="checkbox" id="hnBanClicheCheck" />
+            구시대·상투적 상담 멘트 차단
+          </label>
+        `;
+
+        const dirSel = document.getElementById("hnDirectnessSelect");
+        const clicheChk = document.getElementById("hnBanClicheCheck");
+        dirSel.value = config.extraConfig.psychDirectness || "sharp";
+        clicheChk.checked = config.extraConfig.banCliche !== false;
+
+        dirSel.addEventListener("change", () => {
+          config.extraConfig.psychDirectness = dirSel.value;
+          bus.saveConfig();
+        });
+        clicheChk.addEventListener("change", () => {
+          config.extraConfig.banCliche = clicheChk.checked;
+          bus.saveConfig();
+        });
+      });
+
+      bus.appendMessage("ai", `모듈 2(심리 미세 디테일·직설 조언·상투어 차단) 결합 완료. (Gen-${soul.generation})`, "모듈 2 로드됨", false);
+    })();
+  </script>
+
+  <!-- =========================================================
+       [모듈 3] 금지 멘트 블랙리스트 + 사례 축적 + 자가 회고 진화
+       ========================================================= -->
+  <script id="hn-mod-3">
+    (() => {
+      const bus = window.HydrogenNeonBus;
+      const { soul, config } = bus.getState();
+
+      if (!Array.isArray(soul.extraData.bannedPatterns)) soul.extraData.bannedPatterns = [];
+      if (!Array.isArray(soul.extraData.caseLibrary)) soul.extraData.caseLibrary = [];
+      if (typeof config.extraConfig.autoReflect !== "boolean") config.extraConfig.autoReflect = false;
+
+      let lastTurnSnapshot = null;
+
+      bus.registerPromptHook((promptText) => {
+        const bannedBlock = soul.extraData.bannedPatterns.length > 0
+          ? "\n[창조주 지정 금지 패턴 블랙리스트 — 절대 사용 금지]\n" +
+            soul.extraData.bannedPatterns.map((b, i) => `${i + 1}. "${b.text}"`).join("\n")
+          : "";
+        const caseBlock = soul.extraData.caseLibrary.length > 0
+          ? "\n[축적된 우수 심리 분석 사례 — 패턴 참고]\n" +
+            soul.extraData.caseLibrary.slice(-6).map((c, i) => `${i + 1}. [${c.tag}] ${c.summary}`).join("\n")
+          : "";
+        return `${promptText}${bannedBlock}${caseBlock}`;
+      });
+
+      bus.registerResponseHook(async (reply, ctx) => {
+        lastTurnSnapshot = { userText: ctx.userText, aiReply: reply, timestamp: new Date().toISOString() };
+        if (config.extraConfig.autoReflect && config.engineActive && config.apiKey) {
+          runSelfReflection(true).catch(() => {});
+        }
+        return reply;
+      });
+
+      function escapeHtml(str) {
+        return String(str).replace(/[&<>"']/g, (m) => ({
+          "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+        }[m]));
+      }
+
+      async function runSelfReflection(isAuto = false) {
+        if (!lastTurnSnapshot) {
+          if (!isAuto) alert("회고할 최근 대화가 아직 없습니다.");
+          return;
+        }
+        if (!config.apiKey) {
+          if (!isAuto) alert("Gemini API 키가 필요합니다.");
+          return;
+        }
+
+        const displayModel = config.geminiModel || "gemini-3.8-Flash";
+        const apiModelId = displayModel.trim().toLowerCase();
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(apiModelId)}:generateContent?key=${encodeURIComponent(config.apiKey)}`;
+        const reflectPrompt = `
+너는 Hydrogen & Neon의 메타 자가 회고 엔진이다. 직전 답변을 감사하라.
+[사용자 입력] ${lastTurnSnapshot.userText}
+[AI 답변] ${lastTurnSnapshot.aiReply}
+다음 기준으로 짧게 답하라:
+1. 구시대적·상투적 멘트나 모호한 조언 여부
+2. 놓친 미세 심리 신호
+3. 다음 대화부터 적용할 진화 규칙 1줄
+`;
+
+        const statusMsg = !isAuto ? bus.appendMessage("ai", `${displayModel} 자가 회고 중...`, "모듈 3 회고", false) : null;
+        try {
+          const res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: reflectPrompt }] }] })
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error?.message || `회고 오류 (${res.status})`);
+          const insight = data.candidates?.[0]?.content?.parts?.map((p) => p.text).filter(Boolean).join("\n").trim();
+          if (statusMsg) statusMsg.remove();
+          if (!insight) return;
+
+          const msgEl = bus.appendMessage("ai", `[자가 회고 리포트]\n${insight}`, "모듈 3 진화 루프", false);
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "promote-btn";
+          btn.style.marginTop = "8px";
+          btn.textContent = "진화 규칙으로 영구 각인";
+          btn.addEventListener("click", () => {
+            const ruleText = prompt("영구 규칙으로 편입할 문장을 입력해 주세요.", insight.slice(0, 180));
+            if (!ruleText || !ruleText.trim()) return;
+            soul.promotedMemories.push({
+              id: Date.now(),
+              gen: soul.generation,
+              date: new Date().toISOString().slice(0, 10),
+              text: `[자가진화] ${ruleText.trim()}`
+            });
+            soul.generation += 1;
+            bus.saveSoul();
+            btn.textContent = `각인 완료 (Gen-${soul.generation})`;
+            btn.disabled = true;
+          });
+          msgEl.appendChild(btn);
+        } catch (err) {
+          if (statusMsg) statusMsg.remove();
+          if (!isAuto) bus.appendMessage("ai", `[자가 회고 실패]\n${err.message}`, "모듈 3 오류", false);
+        }
+      }
+
+      function renderEvolutionDrawer() {
+        bus.addDrawerSection("self_evolution", "3. 자가 진화·블랙리스트·사례고", (container) => {
+          container.innerHTML = `
+            <p>뻔한 멘트를 차단하고, 우수 사례와 회고 규칙을 누적해 진화합니다.</p>
+            <button type="button" id="hnReflectNowBtn" style="width:100%;margin-top:8px;color:var(--ok);">방금 답변 자가 회고</button>
+            <label style="display:flex;align-items:center;gap:6px;margin-top:6px;">
+              <input type="checkbox" id="hnAutoReflectCheck" />
+              매 답변 후 자동 회고 실행
+            </label>
+
+            <label style="display:block;margin-top:10px;color:var(--text);">금지 멘트 블랙리스트</label>
+            <div style="display:flex;gap:6px;margin-top:4px;">
+              <input type="text" id="hnBanInput" placeholder="차단할 멘트/패턴..." style="flex:1;" />
+              <button type="button" id="hnAddBanBtn">차단</button>
+            </div>
+            <div id="hnBanList" style="margin-top:6px;"></div>
+
+            <label style="display:block;margin-top:10px;color:var(--text);">우수 분석 사례 축적</label>
+            <input type="text" id="hnCaseTag" placeholder="태그 (예: 답장템포, 회피방어)" style="width:100%;margin-top:4px;" />
+            <div style="display:flex;gap:6px;margin-top:4px;">
+              <input type="text" id="hnCaseSummary" placeholder="핵심 패턴 요약..." style="flex:1;" />
+              <button type="button" id="hnAddCaseBtn">축적</button>
+            </div>
+            <div id="hnCaseList" style="margin-top:6px;"></div>
+          `;
+
+          document.getElementById("hnReflectNowBtn").addEventListener("click", () => runSelfReflection(false));
+          const autoChk = document.getElementById("hnAutoReflectCheck");
+          autoChk.checked = config.extraConfig.autoReflect === true;
+          autoChk.addEventListener("change", () => {
+            config.extraConfig.autoReflect = autoChk.checked;
+            bus.saveConfig();
+          });
+
+          document.getElementById("hnAddBanBtn").addEventListener("click", () => {
+            const inp = document.getElementById("hnBanInput");
+            const val = inp.value.trim();
+            if (!val) return;
+            soul.extraData.bannedPatterns.push({ id: Date.now(), text: val });
+            inp.value = "";
+            bus.saveSoul();
+          });
+
+          document.getElementById("hnAddCaseBtn").addEventListener("click", () => {
+            const tagInp = document.getElementById("hnCaseTag");
+            const sumInp = document.getElementById("hnCaseSummary");
+            const tag = tagInp.value.trim() || "일반심리";
+            const summary = sumInp.value.trim();
+            if (!summary) return;
+            soul.extraData.caseLibrary.push({
+              id: Date.now(),
+              date: new Date().toISOString().slice(0, 10),
+              tag,
+              summary
+            });
+            soul.generation += 1;
+            tagInp.value = "";
+            sumInp.value = "";
+            bus.saveSoul();
+          });
+
+          const banListEl = document.getElementById("hnBanList");
+          if (soul.extraData.bannedPatterns.length === 0) {
+            banListEl.innerHTML = "<p>등록된 금지 멘트 없음</p>";
+          } else {
+            banListEl.innerHTML = "";
+            soul.extraData.bannedPatterns.slice().reverse().forEach((item) => {
+              const card = document.createElement("div");
+              card.className = "soul-item";
+              card.innerHTML = `<div>🚫 ${escapeHtml(item.text)}</div>`;
+              const del = document.createElement("button");
+              del.type = "button";
+              del.textContent = "해제";
+              del.addEventListener("click", () => {
+                soul.extraData.bannedPatterns = soul.extraData.bannedPatterns.filter((b) => b.id !== item.id);
+                bus.saveSoul();
+              });
+              card.appendChild(del);
+              banListEl.appendChild(card);
+            });
+          }
+
+          const caseListEl = document.getElementById("hnCaseList");
+          if (soul.extraData.caseLibrary.length === 0) {
+            caseListEl.innerHTML = "<p>축적된 사례 없음</p>";
+          } else {
+            caseListEl.innerHTML = "";
+            soul.extraData.caseLibrary.slice().reverse().forEach((item) => {
+              const card = document.createElement("div");
+              card.className = "soul-item";
+              card.innerHTML = `<div><strong>[${escapeHtml(item.tag)} · ${item.date}]</strong><br/>${escapeHtml(item.summary)}</div>`;
+              const del = document.createElement("button");
+              del.type = "button";
+              del.textContent = "삭제";
+              del.addEventListener("click", () => {
+                soul.extraData.caseLibrary = soul.extraData.caseLibrary.filter((c) => c.id !== item.id);
+                bus.saveSoul();
+              });
+              card.appendChild(del);
+              caseListEl.appendChild(card);
+            });
+          }
+        });
+      }
+
+      window.addEventListener("hn:soulUpdated", renderEvolutionDrawer);
+      renderEvolutionDrawer();
+      bus.appendMessage("ai", `모듈 3(금지 멘트 블랙리스트·우수 사례고·자가 회고) 결합 완료. (Gen-${soul.generation})`, "모듈 3 로드됨", false);
+    })();
+  </script>
+
+  <!-- =========================================================
+       [모듈 4] 관계 국면 고정 + 대화 해부 + 집중 분석 축
+       ========================================================= -->
+  <script id="hn-mod-4">
+    (() => {
+      const bus = window.HydrogenNeonBus;
+      const { soul, config } = bus.getState();
+
+      if (!config.extraConfig.relationStage) config.extraConfig.relationStage = "unselected";
+      if (!config.extraConfig.focusAxis) config.extraConfig.focusAxis = "micro_signal";
+
+      const RELATION_STAGE_LABELS = {
+        unselected: "미지정 (대화 기준 자동 파악)",
+        talking: "썸·초기 호감 탐색 단계",
+        dating: "연애 중·온도차/갈등 국면",
+        cooling: "거리두기·냉각·회피 국면",
+        aftermath: "이별 후·여운/정리 국면",
+        social: "친구·동료·대인관계 역학"
+      };
+
+      const FOCUS_AXIS_GUIDE = {
+        micro_signal: "답장 간격·문장 길이·말투 변화·이모티콘/마침표 리듬 등 언어·행동 미세 신호 해부에 집중하라.",
+        power_balance: "대화 주도권, 감정 투자 비율, 눈치·방어기제, 거절/실망 감수 의지 등 관계 역학 균형에 집중하라.",
+        action_script: "지금 당장 취할 현실적 행동 선택지와 실제 메시지 초안, 상대 반응별 후속 대응 시나리오에 집중하라."
+      };
+
+      bus.registerPromptHook((promptText) => {
+        const stageKey = config.extraConfig.relationStage || "unselected";
+        const axisKey = config.extraConfig.focusAxis || "micro_signal";
+        const stageLine = stageKey !== "unselected"
+          ? `\n[현재 고정된 관계 국면]: ${RELATION_STAGE_LABELS[stageKey]}`
+          : "";
+        const axisLine = `\n[집중 분석 축]: ${FOCUS_AXIS_GUIDE[axisKey] || FOCUS_AXIS_GUIDE.micro_signal}`;
+        const dialogueGuide = `
+[대화 로그·상황 입력 정밀 처리 규칙]
+- 입력에 여러 줄의 대화나 상황 묘사가 섞여 있으면 흐름 순으로 먼저 정리한 뒤 심리 신호를 뽑아라.
+- 근거가 약한 추론에는 "단서 부족·가설 수준"임을 명시하라.
+`;
+        return `${promptText}${stageLine}${axisLine}\n${dialogueGuide}`;
+      });
+
+      bus.addDrawerSection("dialogue_context", "4. 관계 국면·분석 초점 고정", (container) => {
+        container.innerHTML = `
+          <p>현재 관계 단계와 집중 분석 축을 고정해 프롬프트에 반영합니다.</p>
+          <label style="display:block;margin-top:8px;">현재 관계 국면</label>
+          <select id="hnRelationStageSelect" style="width:100%;margin-top:4px;">
+            <option value="unselected">미지정 (대화 기준 자동 파악)</option>
+            <option value="talking">썸·초기 호감 탐색 단계</option>
+            <option value="dating">연애 중·온도차/갈등 국면</option>
+            <option value="cooling">거리두기·냉각·회피 국면</option>
+            <option value="aftermath">이별 후·여운/정리 국면</option>
+            <option value="social">친구·동료·대인관계 역학</option>
+          </select>
+
+          <label style="display:block;margin-top:8px;">집중 분석 축</label>
+          <select id="hnFocusAxisSelect" style="width:100%;margin-top:4px;">
+            <option value="micro_signal">미세 신호·말투/템포 해부</option>
+            <option value="power_balance">관계 주도권·감정 투자 균형</option>
+            <option value="action_script">직접 행동·메시지·시나리오</option>
+          </select>
+        `;
+
+        const stageSel = document.getElementById("hnRelationStageSelect");
+        const axisSel = document.getElementById("hnFocusAxisSelect");
+        stageSel.value = config.extraConfig.relationStage || "unselected";
+        axisSel.value = config.extraConfig.focusAxis || "micro_signal";
+
+        stageSel.addEventListener("change", () => {
+          config.extraConfig.relationStage = stageSel.value;
+          bus.saveConfig();
+        });
+        axisSel.addEventListener("change", () => {
+          config.extraConfig.focusAxis = axisSel.value;
+          bus.saveConfig();
+        });
+      });
+
+      bus.appendMessage("ai", `모듈 4(관계 국면 고정·대화 해부·집중 분석 축) 결합 완료. (Gen-${soul.generation})`, "모듈 4 로드됨", false);
+    })();
+  </script>
+</body>
+</html>
