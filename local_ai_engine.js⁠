@@ -1,0 +1,113 @@
+// local_ai_engine.js
+// 제12조 로컬 엔진(브라우저 내장 경량 AI 모델) 전용 모듈
+
+import { pipeline, env } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3";
+
+// 브라우저 캐시 사용 활성화
+env.allowLocalModels = false;
+env.useBrowserCache = true;
+
+const DEFAULT_MODEL_ID = "onnx-community/Qwen2.5-0.5B-Instruct";
+
+export class WhitescentLocalModelEngine {
+  constructor(modelId = DEFAULT_MODEL_ID) {
+    this.modelId = modelId;
+    this.generator = null;
+    this.loadingPromise = null;
+    this.isReady = false;
+    this.lastError = null;
+  }
+
+  /**
+   * 경량 AI 모델을 브라우저에 불러온다(최초 1회 다운로드 후 캐시 활용).
+   * @param {function(string): void} onStatus - 진행 상태 콜백
+   */
+  async load(onStatus = () => {}) {
+    if (this.isReady && this.generator) return this.generator;
+    if (this.loadingPromise) return this.loadingPromise;
+
+    this.loadingPromise = (async () => {
+      try {
+        onStatus(`로컬 AI 모델(${this.modelId}) 초기화 중... 첫 구동 시 시간이 걸릴 수 있습니다.`);
+        this.generator = await pipeline("text-generation", this.modelId, {
+          dtype: "q4",
+          progress_callback: (info) => {
+            if (info?.status === "progress" && typeof info.progress === "number") {
+              const pct = info.progress.toFixed(1);
+              const fileLabel = info.file ? ` (${info.file.split("/").pop()})` : "";
+              onStatus(`로컬 모델 다운로드 중${fileLabel}: ${pct}%`);
+            } else if (info?.status === "ready") {
+              onStatus("로컬 AI 모델 준비 완료.");
+            }
+          }
+        });
+        this.isReady = true;
+        this.lastError = null;
+        return this.generator;
+      } catch (err) {
+        this.lastError = err?.message || String(err);
+        this.isReady = false;
+        throw err;
+      } finally {
+        this.loadingPromise = null;
+      }
+    })();
+
+    return this.loadingPromise;
+  }
+
+  /**
+   * Whitescent 규범(v2.1)과 승격 기억을 반영해 실제 텍스트 응답을 생성한다.
+   */
+  async generate({ userText, mode, codexText, promotedMemories = [], onStatus = () => {} }) {
+    const gen = await this.load(onStatus);
+    onStatus("로컬 AI가 규범을 바탕으로 답변을 생성 중입니다...");
+
+    const modeGuide = {
+      psych: "제4조에 따라 [1.사실·단서 분리] [2.미세 신호] [3.다각적 가설] [4.선택지·파장] 순서로 분석하라.",
+      study: "제6조·제7조에 따라 [1.위계] [2.대조] [3.문항/함정/해설] 순서로 정리·출제하라.",
+      fact: "제8조·제14조에 따라 사실과 해석을 구분하고 불확실성을 명시하라."
+    }[mode] || "규범에 따라 체계적으로 답하라.";
+
+    const memoryLines = promotedMemories.length > 0
+      ? promotedMemories.slice(-8).map((m, idx) => `- ${idx + 1}. ${m.text}`).join("\n")
+      : "- 아직 승격된 기억 없음";
+
+    const systemPrompt = [
+      "너는 전용 지능 Whitescent다. 창조주의 기준과 규범을 따른다.",
+      codexText.trim(),
+      `[적용 모드 지침]\n${modeGuide}`,
+      `[창조주 승격 기억]\n${memoryLines}`,
+      "단정적 허위 사실이나 유해한 조언은 피하고, 한국어로 명확하고 구조적으로 답하라."
+    ].join("\n\n");
+
+    const messages = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userText }
+    ];
+
+    const output = await gen(messages, {
+      max_new_tokens: 420,
+      temperature: 0.65,
+      top_p: 0.9,
+      do_sample: true,
+      return_full_text: false
+    });
+
+    const first = Array.isArray(output) ? output[0] : output;
+    let generatedText = "";
+
+    if (Array.isArray(first?.generated_text)) {
+      const lastMsg = first.generated_text[first.generated_text.length - 1];
+      generatedText = lastMsg?.content || "";
+    } else if (typeof first?.generated_text === "string") {
+      generatedText = first.generated_text;
+    }
+
+    const cleaned = generatedText.trim();
+    if (!cleaned) {
+      throw new Error("로컬 모델이 빈 응답을 반환했습니다.");
+    }
+    return cleaned;
+  }
+}
