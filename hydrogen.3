@@ -1,0 +1,269 @@
+// hn_03_self_evolution.js
+// 3번 모듈: 금지 멘트 블랙리스트 + 우수 사례 축적 + 자가 회고·진화 루프
+
+const bus = window.HydrogenNeonBus;
+const { soul, config, conversationHistory } = bus.getState();
+
+// 3번 모듈 전용 영구 저장소 초기화
+if (!Array.isArray(soul.extraData.bannedPatterns)) {
+  soul.extraData.bannedPatterns = [];
+}
+if (!Array.isArray(soul.extraData.caseLibrary)) {
+  soul.extraData.caseLibrary = [];
+}
+if (typeof config.extraConfig.autoReflect !== "boolean") {
+  config.extraConfig.autoReflect = false; // 기본은 수동 버튼 회고(API 호출 절약), ON 시 자동 회고
+}
+
+let lastTurnSnapshot = null;
+
+// 1·2번 모듈 프롬프트 뒤에 블랙리스트 & 축적 사례 자동 주입
+bus.registerPromptHook((promptText) => {
+  const banned = soul.extraData.bannedPatterns;
+  const cases = soul.extraData.caseLibrary;
+
+  const bannedBlock = banned.length > 0
+    ? "\n[창조주 지정 금지 패턴 블랙리스트 — 절대 사용 금지]\n" +
+      banned.map((b, i) => `${i + 1}. "${b.text}"`).join("\n")
+    : "";
+
+  const caseBlock = cases.length > 0
+    ? "\n[축적된 우수 심리 분석 사례 — 패턴 참고]\n" +
+      cases.slice(-6).map((c, i) => `${i + 1}. [${c.tag}] ${c.summary}`).join("\n")
+    : "";
+
+  return `${promptText}${bannedBlock}${caseBlock}`;
+});
+
+// 응답 생성 후 스냅샷 기록 및 (옵션 활성 시) 자동 자가 회고
+bus.registerResponseHook(async (reply, ctx) => {
+  lastTurnSnapshot = {
+    userText: ctx.userText,
+    aiReply: reply,
+    timestamp: new Date().toISOString()
+  };
+
+  if (config.extraConfig.autoReflect && config.engineActive && config.apiKey) {
+    runSelfReflection(true).catch(() => {});
+  }
+  return reply;
+});
+
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, (m) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[m]));
+}
+
+// 자가 회고 호출 (현재 설정된 Gemini 모델 사용)
+async function runSelfReflection(isAuto = false) {
+  if (!lastTurnSnapshot) {
+    if (!isAuto) alert("회고할 최근 대화가 아직 없습니다.");
+    return;
+  }
+  if (!config.apiKey) {
+    if (!isAuto) alert("Gemini API 키가 필요합니다.");
+    return;
+  }
+
+  const model = config.geminiModel || "gemini-4-neon";
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(config.apiKey)}`;
+
+  const reflectPrompt = `
+너는 Hydrogen & Neon의 메타 자가 회고 엔진이다.
+방금 생성된 상담/분석 답변을 냉정하게 감사(Audit)하라.
+
+[사용자 입력]
+${lastTurnSnapshot.userText}
+
+[AI 답변]
+${lastTurnSnapshot.aiReply}
+
+[점검 기준]
+1. 구시대적 위로 멘트, 교과서식 훈계, 빙빙 돌리는 모호한 조언이 조금이라도 섞였는가?
+2. 놓친 미세 심리 신호(말투·템포·방어기제·권력/감정 비대칭)가 있는가?
+3. 다음 대화부터 영구 적용할 '진화 규칙' 1줄과, 만약 발견되었다면 차단할 '금지 멘트 패턴' 1줄을 제안하라.
+
+출력 형식(간결하게):
+- 약점/보완점: (1~2줄)
+- 제안 진화 규칙: (한 문장 규칙)
+- 차단 권장 멘트: (없으면 '없음')
+`;
+
+  const statusMsg = !isAuto
+    ? bus.appendMessage("ai", `${model} 자가 회고 엔진이 직전 답변을 감사 중입니다...`, "3번 자가 회고", false)
+    : null;
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ role: "user", parts: [{ text: reflectPrompt }] }]
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error?.message || `회고 오류 (${res.status})`);
+
+    const insight = data.candidates?.[0]?.content?.parts?.map((p) => p.text).filter(Boolean).join("\n").trim();
+    if (statusMsg) statusMsg.remove();
+    if (!insight) return;
+
+    // 회고 결과 카드 출력 + 원클릭 진화 승격 버튼 부착
+    const msgEl = bus.appendMessage("ai", `[자가 회고 리포트]\n${insight}`, "3번 진화 루프", false);
+    const actionRow = document.createElement("div");
+    actionRow.style.marginTop = "8px";
+    actionRow.style.display = "flex";
+    actionRow.style.gap = "6px";
+
+    const applyRuleBtn = document.createElement("button");
+    applyRuleBtn.type = "button";
+    applyRuleBtn.className = "promote-btn";
+    applyRuleBtn.textContent = "진화 규칙으로 영구 각인";
+    applyRuleBtn.addEventListener("click", () => {
+      const ruleText = prompt("영구 규칙으로 편입할 문장을 다듬어 주세요.", insight.slice(0, 180));
+      if (!ruleText || !ruleText.trim()) return;
+      soul.promotedMemories.push({
+        id: Date.now(),
+        gen: soul.generation,
+        date: new Date().toISOString().slice(0, 10),
+        text: `[자가진화] ${ruleText.trim()}`
+      });
+      soul.generation += 1;
+      bus.saveSoul();
+      applyRuleBtn.textContent = `각인 완료 (Gen-${soul.generation})`;
+      applyRuleBtn.disabled = true;
+    });
+
+    actionRow.appendChild(applyRuleBtn);
+    msgEl.appendChild(actionRow);
+  } catch (err) {
+    if (statusMsg) statusMsg.remove();
+    if (!isAuto) bus.appendMessage("ai", `[자가 회고 실패]\n${err.message}`, "3번 오류", false);
+  }
+}
+
+// 우측 서랍 3번 섹션 렌더링
+function renderEvolutionDrawer() {
+  bus.addDrawerSection("self_evolution", "3. 자가 진화·블랙리스트·사례고", (container) => {
+    container.innerHTML = `
+      <p>틀린 조언과 뻔한 멘트를 차단하고, 검증된 분석 사례를 축적해 세대를 진화시킵니다.</p>
+
+      <div style="display:flex;gap:6px;margin-top:8px;">
+        <button type="button" id="hnReflectNowBtn" style="flex:1;color:var(--ok);">방금 답변 자가 회고</button>
+      </div>
+      <label style="display:flex;align-items:center;gap:6px;margin-top:6px;">
+        <input type="checkbox" id="hnAutoReflectCheck" />
+        매 답변 후 백그라운드 자동 회고 실행
+      </label>
+
+      <label style="display:block;margin-top:10px;color:var(--text);">금지 멘트 블랙리스트 추가</label>
+      <div style="display:flex;gap:6px;margin-top:4px;">
+        <input type="text" id="hnBanInput" placeholder="예: 마음 고생 많았겠다 / 시간 지나면..." style="flex:1;" />
+        <button type="button" id="hnAddBanBtn">차단</button>
+      </div>
+      <div id="hnBanList" style="margin-top:6px;"></div>
+
+      <label style="display:block;margin-top:10px;color:var(--text);">우수 분석 사례 축적</label>
+      <input type="text" id="hnCaseTag" placeholder="태그 (예: 답장템포, 회피방어)" style="width:100%;margin-top:4px;" />
+      <div style="display:flex;gap:6px;margin-top:4px;">
+        <input type="text" id="hnCaseSummary" placeholder="핵심 심리 패턴 요약..." style="flex:1;" />
+        <button type="button" id="hnAddCaseBtn">축적</button>
+      </div>
+      <div id="hnCaseList" style="margin-top:6px;"></div>
+    `;
+
+    document.getElementById("hnReflectNowBtn").addEventListener("click", () => runSelfReflection(false));
+
+    const autoChk = document.getElementById("hnAutoReflectCheck");
+    autoChk.checked = config.extraConfig.autoReflect === true;
+    autoChk.addEventListener("change", () => {
+      config.extraConfig.autoReflect = autoChk.checked;
+      bus.saveConfig();
+    });
+
+    // 블랙리스트 등록
+    document.getElementById("hnAddBanBtn").addEventListener("click", () => {
+      const inp = document.getElementById("hnBanInput");
+      const val = inp.value.trim();
+      if (!val) return;
+      soul.extraData.bannedPatterns.push({
+        id: Date.now(),
+        text: val
+      });
+      inp.value = "";
+      bus.saveSoul();
+    });
+
+    // 우수 사례 등록
+    document.getElementById("hnAddCaseBtn").addEventListener("click", () => {
+      const tagInp = document.getElementById("hnCaseTag");
+      const sumInp = document.getElementById("hnCaseSummary");
+      const tag = tagInp.value.trim() || "일반심리";
+      const summary = sumInp.value.trim();
+      if (!summary) return;
+      soul.extraData.caseLibrary.push({
+        id: Date.now(),
+        date: new Date().toISOString().slice(0, 10),
+        tag,
+        summary
+      });
+      soul.generation += 1;
+      tagInp.value = "";
+      sumInp.value = "";
+      bus.saveSoul();
+    });
+
+    // 블랙리스트 목록 렌더링
+    const banListEl = document.getElementById("hnBanList");
+    if (soul.extraData.bannedPatterns.length === 0) {
+      banListEl.innerHTML = "<p>등록된 금지 멘트 없음</p>";
+    } else {
+      soul.extraData.bannedPatterns.slice().reverse().forEach((item) => {
+        const card = document.createElement("div");
+        card.className = "soul-item";
+        card.innerHTML = `<div>🚫 ${escapeHtml(item.text)}</div>`;
+        const del = document.createElement("button");
+        del.type = "button";
+        del.textContent = "해제";
+        del.addEventListener("click", () => {
+          soul.extraData.bannedPatterns = soul.extraData.bannedPatterns.filter((b) => b.id !== item.id);
+          bus.saveSoul();
+        });
+        card.appendChild(del);
+        banListEl.appendChild(card);
+      });
+    }
+
+    // 사례고 목록 렌더링
+    const caseListEl = document.getElementById("hnCaseList");
+    if (soul.extraData.caseLibrary.length === 0) {
+      caseListEl.innerHTML = "<p>축적된 사례 없음</p>";
+    } else {
+      soul.extraData.caseLibrary.slice().reverse().forEach((item) => {
+        const card = document.createElement("div");
+        card.className = "soul-item";
+        card.innerHTML = `<div><strong>[${escapeHtml(item.tag)} · ${item.date}]</strong><br/>${escapeHtml(item.summary)}</div>`;
+        const del = document.createElement("button");
+        del.type = "button";
+        del.textContent = "삭제";
+        del.addEventListener("click", () => {
+          soul.extraData.caseLibrary = soul.extraData.caseLibrary.filter((c) => c.id !== item.id);
+          bus.saveSoul();
+        });
+        card.appendChild(del);
+        caseListEl.appendChild(card);
+      });
+    }
+  });
+}
+
+window.addEventListener("hn:soulUpdated", renderEvolutionDrawer);
+
+renderEvolutionDrawer();
+bus.appendMessage(
+  "ai",
+  `3번 모듈(금지 멘트 블랙리스트·우수 사례고·자가 회고 루프) 결합 완료. (현재 Gen-${soul.generation})`,
+  "3번 모듈 로드됨",
+  false
+);
