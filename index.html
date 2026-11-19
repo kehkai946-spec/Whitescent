@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Whitescent — Dedicated Cognitive Entity</title>
+  <style>
+    :root {
+      --bg: #0f1115;
+      --panel: #171a21;
+      --panel-2: #1f242d;
+      --border: #2a303c;
+      --text: #e6e9ef;
+      --muted: #9aa3b2;
+      --accent: #7aa2f7;
+      --boost: #bb9af7;
+      --ok: #73daca;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 18px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .brand h1 { font-size: 1.1rem; font-weight: 700; letter-spacing: 0.4px; }
+    .badge {
+      font-size: 0.75rem;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      color: var(--ok);
+    }
+    .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+    button, select, input {
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 0.82rem;
+    }
+    button { cursor: pointer; transition: 0.15s; }
+    button:hover { border-color: var(--accent); }
+    .btn-boost.active {
+      background: rgba(187, 154, 247, 0.18);
+      border-color: var(--boost);
+      color: var(--boost);
+      font-weight: 600;
+    }
+    .main {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+    .chat-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+    #messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .msg {
+      max-width: 820px;
+      padding: 14px 16px;
+      border-radius: 12px;
+      line-height: 1.6;
+      font-size: 0.92rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .msg.user {
+      align-self: flex-end;
+      background: #232a3b;
+      border: 1px solid #333e57;
+    }
+    .msg.ai {
+      align-self: flex-start;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      width: 100%;
+    }
+    .msg-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.74rem;
+      color: var(--muted);
+      margin-bottom: 8px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--border);
+    }
+    .promote-btn {
+      font-size: 0.72rem;
+      padding: 2px 8px;
+      color: var(--ok);
+      border-color: rgba(115, 218, 202, 0.35);
+    }
+    .promote-btn.promoted {
+      background: rgba(115, 218, 202, 0.15);
+      cursor: default;
+    }
+    .input-bar {
+      background: var(--panel);
+      border-top: 1px solid var(--border);
+      padding: 12px 16px;
+      display: flex;
+      gap: 10px;
+    }
+    textarea {
+      flex: 1;
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 0.92rem;
+      resize: none;
+      height: 54px;
+      font-family: inherit;
+    }
+    textarea:focus { outline: none; border-color: var(--accent); }
+    .send-btn {
+      background: var(--accent);
+      color: #0b0d12;
+      font-weight: 700;
+      border: none;
+      padding: 0 18px;
+      border-radius: 10px;
+    }
+    .drawer {
+      width: 310px;
+      background: var(--panel);
+      border-left: 1px solid var(--border);
+      padding: 14px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .drawer h2 { font-size: 0.88rem; color: var(--accent); }
+    .drawer p, .drawer label { font-size: 0.78rem; color: var(--muted); line-height: 1.45; }
+    .soul-item {
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px;
+      font-size: 0.78rem;
+      margin-bottom: 6px;
+    }
+    .soul-item button {
+      margin-top: 5px;
+      font-size: 0.7rem;
+      padding: 2px 6px;
+      color: #f7768e;
+    }
+    @media (max-width: 820px) {
+      .drawer { display: none; }
+      .drawer.open { display: flex; position: fixed; right: 0; top: 54px; bottom: 0; z-index: 20; width: 88%; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <h1>WHITESCENT</h1>
+      <span class="badge" id="genBadge">Gen-1 · Local (0원)</span>
+    </div>
+    <div class="controls">
+      <select id="modeSelect" title="제2조 제3호 판단 모드">
+        <option value="auto">판단 모드: 자동 감지</option>
+        <option value="psych">① 심리·연애 분석 모드</option>
+        <option value="study">② 학습 구조·문항 설계 모드</option>
+        <option value="fact">③ 사실 검증·탐색 모드</option>
+      </select>
+      <button id="boostToggle" class="btn-boost" type="button">Boost: OFF (Local)</button>
+      <button id="exportBtn" type="button">Soul 백업</button>
+      <button id="importBtn" type="button">Soul 복원</button>
+      <input type="file" id="importFile" accept=".json" style="display:none" />
+      <button id="drawerToggle" type="button">규범·기억</button>
+    </div>
+  </header>
+
+  <div class="main">
+    <div class="chat-area">
+      <div id="messages"></div>
+      <div class="input-bar">
+        <textarea id="userInput" placeholder="심리·연애 고민, 수험 개념 정리, 고난도 문제 출제 요청을 입력하세요..."></textarea>
+        <button class="send-btn" id="sendBtn" type="button">전송</button>
+      </div>
+    </div>
+
+    <aside class="drawer" id="drawer">
+      <h2>제6장 하이브리드 엔진 설정</h2>
+      <p>API 키는 오직 현재 기기 브라우저에만 보관되며 GitHub에 절대 업로드되지 않습니다(제16조).</p>
+      <label>Boost 공급자</label>
+      <select id="providerSelect">
+        <option value="gemini">Google Gemini API</option>
+        <option value="openai">OpenAI API</option>
+      </select>
+      <label>API Key (Boost 스위치 ON 시 실제 AI 응답 생성)</label>
+      <input type="password" id="apiKeyInput" placeholder="API 키 입력" />
+      <label style="display:flex;align-items:center;gap:6px;margin-top:4px;">
+        <input type="checkbox" id="webSearchCheck" />
+        제14조 외부 인터넷 검색 근거 우선(Gemini 지원)
+      </label>
+
+      <hr style="border-color:var(--border)" />
+      <h2>승격 기억 (Promoted Memory)</h2>
+      <p>제9조·제17조에 따라 창조주가 직접 승인한 규칙·사례만 장기 기억으로 축적됩니다.</p>
+      <div style="display:flex;gap:6px;">
+        <input type="text" id="manualRuleInput" placeholder="새 규범/지침 직접 각인..." style="flex:1;" />
+        <button id="addRuleBtn" type="button">각인</button>
+      </div>
+      <div id="soulList"></div>
+    </aside>
+  </div>
+
+  <script>
+    const CODEX_V2_1 = `
+[WHITESCENT 조직 규범 및 개념 정의서 v2.1]
+제1조(목적): 창조주(단독 사용자)를 위해 심리·연애의 미세 신호 분석, 수험 학습 구조화 및 고난도 문항 출제, 검증된 기억 축적을 수행하는 특화 지능이다.
+제2조(용어): 미세 신호(말투 변화, 응답 템포, 방어기제, 기대와 현실의 괴리), 가설(검증 전 잠정 해석), 승격 기억(창조주 승인 장기 지식).
+제3조(우선순위): 제5장(금지·안전) > 제1장(총칙) > 개별 업무장(제2~4장).
+제4조(심리·연애 4단계): 1.사실·단서 분리 -> 2.미세 신호 추출 -> 3.다각적 가설 제시(단정 금지) -> 4.행동 선택지 및 단·중기 파장 제시.
+제5조(상담 균형): 감정 존중하되 논리 비약 추인 금지. 기만·조종·가스라이팅·감시 조언 절대 금지.
+제6조(학습 정리): 1.위계(상위->하위->예외) -> 2.혼동 개념 대조(공통점/차이점/분별 표지) -> 3.텍스트 도식·표 시각화.
+제7조(문항 출제): 1.평가 역량 명시 발문 -> 2.오개념·조건 누락·과도한 일반화 함정 선지 -> 3.정답 경로 + 오답 오류 원인 + 핵심 판별 기준 해설.
+제8조·제14조(외부 탐색): 최신성·근거 필요 시 활용, 출처·맥락 확인, 사실과 해석 분리, 불확실성 명시.
+제11조(절대 금지): 자해·자살·폭력·범죄 조장, 의학적 진단 단정, 정서적 학대·스토킹 조장, 허위 사실 조작 금지.
+`;
+
+    const STORAGE_KEY = "whitescent_soul_v2_1";
+    const CONFIG_KEY = "whitescent_config_v2_1";
+
+    let soul = { version: "2.1", generation: 1, promotedMemories: [] };
+    let config = { boost: false, provider: "gemini", apiKey: "", webSearch: true };
+
+    try {
+      const savedSoul = JSON.parse(localStorage.getItem(STORAGE_KEY));
+      if (savedSoul && Array.isArray(savedSoul.promotedMemories)) {
+        soul = { ...soul, ...savedSoul };
+      }
+    } catch (_) {}
+
+    try {
+      const savedConfig = JSON.parse(localStorage.getItem(CONFIG_KEY));
+      if (savedConfig && typeof savedConfig === "object") {
+        config = { ...config, ...savedConfig };
+      }
+    } catch (_) {}
+
+    function saveSoul() {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(soul)); } catch (_) {}
+      updateStatusUI();
+      renderSoulList();
+    }
+
+    function saveConfig() {
+      config.provider = document.getElementById("providerSelect").value;
+      config.apiKey = document.getElementById("apiKeyInput").value.trim();
+      config.webSearch = document.getElementById("webSearchCheck").checked;
+      try { localStorage.setItem(CONFIG_KEY, JSON.stringify(config)); } catch (_) {}
+      updateStatusUI();
+    }
+
+    function toggleBoost() {
+      if (!config.boost && !config.apiKey) {
+        toggleDrawer(true);
+        alert("실제 AI 답변 생성(Boost)을 켜려면 우측 설정창에 먼저 API 키를 입력해야 합니다. 키 없이 쓰면 Local(0원) 규범 분석 틀로 작동합니다.");
+        return;
+      }
+      config.boost = !config.boost;
+      saveConfig();
+    }
+
+    function updateStatusUI() {
+      const btn = document.getElementById("boostToggle");
+      const badge = document.getElementById("genBadge");
+      if (config.boost) {
+        btn.classList.add("active");
+        btn.textContent = "Boost: ON (" + config.provider.toUpperCase() + ")";
+        badge.textContent = `Gen-${soul.generation} · Boost 활성`;
+      } else {
+        btn.classList.remove("active");
+        btn.textContent = "Boost: OFF (Local)";
+        badge.textContent = `Gen-${soul.generation} · Local (0원)`;
+      }
+    }
+
+    function toggleDrawer(forceOpen) {
+      const d = document.getElementById("drawer");
+      if (typeof forceOpen === "boolean") {
+        d.classList.toggle("open", forceOpen);
+      } else {
+        d.classList.toggle("open");
+      }
+    }
+
+    function detectMode(text) {
+      const selected = document.getElementById("modeSelect").value;
+      if (selected !== "auto") return selected;
+      const psychKeywords = ["연애", "썸", "남친", "여친", "고백", "답장", "읽씹", "서운", "심리", "감정", "갈등", "친구", "마음", "이별", "짝사랑"];
+      const studyKeywords = ["문제", "출제", "선지", "개념", "정리", "요약", "수능", "모의고사", "시험", "해설", "오답", "공부", "이론", "법", "수학", "영어"];
+      if (psychKeywords.some(k => text.includes(k))) return "psych";
+      if (studyKeywords.some(k => text.includes(k))) return "study";
+      return "fact";
+    }
+
+    function runLocalEngine(userText, mode) {
+      const memCount = soul.promotedMemories.length;
+      const memNote = memCount > 0
+        ? `\n[적용된 승격 기억 ${memCount}건]\n` + soul.promotedMemories.slice(-5).map((m, i) => `  ${i + 1}. ${m.text}`).join("\n")
+        : "";
+
+      if (mode === "psych") {
+        return `[제4조 심리·연애 4단계 프로토콜 — Local(0원) 규범 틀]${memNote}
+
+1. 사실·단서 분리
+- 입력 내용: "${userText}"
+- 객관적 행동/발화 사실과, 내가 지레짐작한 의도·감정 해석을 분리해 적으십시오.
+
+2. 미세 신호 체크리스트 (제2조 제2호)
+- [답장 템포·밀도] 평소 대비 답장 간격이나 문장 길이 변화가 있는지 확인하십시오.
+- [방어기제·회피] 직접적인 대화를 피하거나 가벼운 농담으로 넘기려는 징후가 있는지 보십시오.
+- [균형 여부] 한쪽만 과하게 맞추거나 눈치를 보는 구조가 생겼는지 점검하십시오.
+
+3. 다각적 가설 프레임 (단정 금지)
+- 가설 A: 상대의 개인 일정·스트레스·심리적 여유 부족으로 인한 반응 변화.
+- 가설 B: 관계 거리감 조절, 서운함 누적, 확신 부족에 따른 신중함.
+
+4. 선택지 및 파장
+- 실제 상황 맞춤 추론과 구체적 문장 제안이 필요하면 우측 [규범·기억]에서 API 키를 넣고 Boost: ON으로 전환하십시오.`;
+      }
+
+      if (mode === "study") {
+        return `[제6조·제7조 학습 구조화 및 문항 설계 프로토콜 — Local(0원) 규범 틀]${memNote}
+
+1. 위계 구조
+- 대상: "${userText}"
+- 상위 개념 → 성립 요건/핵심 원리 → 적용 예외·반례 순서로 정리하십시오.
+
+2. 대조 기준
+- 비교 대상 간 [공통점]과 [결정적 차이(분별 표지)]를 나란히 세워 대비하십시오.
+
+3. 문항·함정 설계 체크포인트 (제7조)
+- 선지 함정 1(조건 누락): 필수 전제 조건을 빼고 성립한다고 단정하는 선지.
+- 선지 함정 2(개념 혼동/인과 역전): 인접 개념과 뒤바꾸거나 원인과 결과를 거꾸로 둔 선지.
+- 실제 문제·선지·정오 해설을 직접 생성하려면 Boost: ON으로 전환해 요청하십시오.`;
+      }
+
+      return `[제8조 사실 검증·일반 탐색 프로토콜 — Local(0원) 규범 틀]${memNote}
+
+- 입력: "${userText}"
+- 현재 Local(0원) 모드에서는 외부 AI 모델 호출 없이 규범(v2.1) 분석 틀과 승격 기억(${memCount}건)을 보여줍니다.
+- 실제 AI 추론이나 인터넷 검색 근거가 필요할 때만 우측에서 API 키를 입력하고 Boost: ON을 켜십시오.`;
+    }
+
+    async function runBoostEngine(userText, mode) {
+      const modeDesc = {
+        psych: "제2장(심리·연애 상담 규범: 1.사실·단서 분리 -> 2.미세 신호 -> 3.다각적 가설 -> 4.선택지·파장)을 엄격히 적용하라.",
+        study: "제3장(학습 정리 및 문항 출제 규범: 위계 -> 대조 -> 도식 / 발문 -> 함정선지 -> 정오해설)을 엄격히 적용하라.",
+        fact: "제8조 및 제14조(사실과 해석 분리, 출처·불확실성 명시)를 엄격히 적용하라."
+      }[mode];
+
+      const promotedBlock = soul.promotedMemories.length > 0
+        ? "\n[창조주 승인 승격 기억(최우선 반영)]\n" + soul.promotedMemories.map((m, i) => `${i + 1}. ${m.text}`).join("\n")
+        : "";
+
+      const systemInstruction = `${CODEX_V2_1}\n${promotedBlock}\n[현재 활성화 판단 모드]\n${modeDesc}`;
+
+      if (config.provider === "gemini") {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(config.apiKey)}`;
+        const body = {
+          systemInstruction: { parts: [{ text: systemInstruction }] },
+          contents: [{ role: "user", parts: [{ text: userText }] }]
+        };
+        if (config.webSearch) {
+          body.tools = [{ google_search: {} }];
+        }
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error?.message || "Gemini API 호출 오류");
+        return data.candidates?.[0]?.content?.parts?.map(p => p.text).join("\n") || "응답이 비어 있습니다.";
+      } else {
+        const res = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${config.apiKey}`
+          },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [
+              { role: "system", content: systemInstruction },
+              { role: "user", content: userText }
+            ]
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error?.message || "OpenAI API 호출 오류");
+        return data.choices?.[0]?.message?.content || "응답이 비어 있습니다.";
+      }
+    }
+
+    async function handleSend() {
+      const inputEl = document.getElementById("userInput");
+      const text = inputEl.value.trim();
+      if (!text) return;
+
+      inputEl.value = "";
+      appendMessage("user", text);
+
+      const mode = detectMode(text);
+      const modeLabel = { psych: "심리·연애 모드", study: "학습·문항 모드", fact: "검증·탐색 모드" }[mode];
+
+      if (!config.boost) {
+        const reply = runLocalEngine(text, mode);
+        appendMessage("ai", reply, `Local(0원) · ${modeLabel}`, true);
+        return;
+      }
+
+      const loadingEl = appendMessage("ai", "Boost AI 두뇌가 규범 v2.1을 적용해 답변을 생성 중입니다...", `Boost · ${modeLabel}`, false);
+      try {
+        const reply = await runBoostEngine(text, mode);
+        loadingEl.remove();
+        appendMessage("ai", reply, `Boost(${config.provider.toUpperCase()}) · ${modeLabel}`, true);
+      } catch (err) {
+        loadingEl.remove();
+        appendMessage(
+          "ai",
+          `[Boost 호출 실패 — Local 규범 틀로 안전 복귀]\n오류: ${err.message}\n\n` + runLocalEngine(text, mode),
+          `오류 복구 · ${modeLabel}`,
+          false
+        );
+      }
+    }
+
+    function appendMessage(role, text, metaLabel = "", allowPromote = false) {
+      const box = document.getElementById("messages");
+      const div = document.createElement("div");
+      div.className = `msg ${role}`;
+
+      if (role === "ai") {
+        const meta = document.createElement("div");
+        meta.className = "msg-meta";
+        meta.innerHTML = `<span>Whitescent Gen-${soul.generation} · ${metaLabel}</span>`;
+        if (allowPromote) {
+          const btn = document.createElement("button");
+          btn.className = "promote-btn";
+          btn.type = "button";
+          btn.textContent = "+ 기억 승격";
+          btn.addEventListener("click", () => promoteMemory(text, btn));
+          meta.appendChild(btn);
+        }
+        div.appendChild(meta);
+      }
+
+      const content = document.createElement("div");
+      content.textContent = text;
+      div.appendChild(content);
+
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+      return div;
+    }
+
+    function promoteMemory(text, btnEl) {
+      const summary = prompt("제9조 기억 승격: 장기 기억으로 각인할 핵심 규칙이나 사례를 입력하세요.", text.slice(0, 180));
+      if (!summary || !summary.trim()) return;
+      soul.promotedMemories.push({
+        id: Date.now(),
+        gen: soul.generation,
+        date: new Date().toISOString().slice(0, 10),
+        text: summary.trim()
+      });
+      soul.generation += 1;
+      saveSoul();
+      if (btnEl) {
+        btnEl.textContent = "승격 완료 (Gen-" + soul.generation + ")";
+        btnEl.classList.add("promoted");
+        btnEl.disabled = true;
+      }
+    }
+
+    function addManualRule() {
+      const inp = document.getElementById("manualRuleInput");
+      const val = inp.value.trim();
+      if (!val) return;
+      soul.promotedMemories.push({
+        id: Date.now(),
+        gen: soul.generation,
+        date: new Date().toISOString().slice(0, 10),
+        text: val
+      });
+      soul.generation += 1;
+      inp.value = "";
+      saveSoul();
+    }
+
+    function renderSoulList() {
+      const list = document.getElementById("soulList");
+      list.innerHTML = "";
+      if (soul.promotedMemories.length === 0) {
+        list.innerHTML = "<p>아직 승격된 기억이 없습니다. 위 칸에 지침을 적고 [각인]을 누르거나, 답변의 [+ 기억 승격]을 눌러 보세요.</p>";
+        return;
+      }
+      soul.promotedMemories.slice().reverse().forEach(item => {
+        const card = document.createElement("div");
+        card.className = "soul-item";
+        card.innerHTML = `<div><strong>[Gen-${item.gen} · ${item.date}]</strong><br/>${escapeHtml(item.text)}</div>`;
+        const del = document.createElement("button");
+        del.type = "button";
+        del.textContent = "제17조 무효화(삭제)";
+        del.addEventListener("click", () => {
+          soul.promotedMemories = soul.promotedMemories.filter(m => m.id !== item.id);
+          saveSoul();
+        });
+        card.appendChild(del);
+        list.appendChild(card);
+      });
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/[&<>"']/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
+    }
+
+    function exportSoul() {
+      const blob = new Blob([JSON.stringify(soul, null, 2)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `whitescent_soul_gen${soul.generation}.json`;
+      a.click();
+    }
+
+    function importSoul(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = e => {
+        try {
+          const imported = JSON.parse(e.target.result);
+          if (!Array.isArray(imported.promotedMemories)) throw new Error("유효하지 않은 Soul 파일 형식");
+          soul = imported;
+          saveSoul();
+          alert(`Soul 복원 완료! 현재 세대: Gen-${soul.generation}`);
+        } catch (err) {
+          alert("복원 실패: " + err.message);
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    document.getElementById("boostToggle").addEventListener("click", toggleBoost);
+    document.getElementById("exportBtn").addEventListener("click", exportSoul);
+    document.getElementById("importBtn").addEventListener("click", () => document.getElementById("importFile").click());
+    document.getElementById("importFile").addEventListener("change", importSoul);
+    document.getElementById("drawerToggle").addEventListener("click", () => toggleDrawer());
+    document.getElementById("sendBtn").addEventListener("click", handleSend);
+    document.getElementById("providerSelect").addEventListener("change", saveConfig);
+    document.getElementById("apiKeyInput").addEventListener("change", saveConfig);
+    document.getElementById("webSearchCheck").addEventListener("change", saveConfig);
+    document.getElementById("addRuleBtn").addEventListener("click", addManualRule);
+    document.getElementById("userInput").addEventListener("keydown", e => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        handleSend();
+      }
+    });
+
+    document.getElementById("providerSelect").value = config.provider;
+    document.getElementById("apiKeyInput").value = config.apiKey;
+    document.getElementById("webSearchCheck").checked = config.webSearch;
+    updateStatusUI();
+    renderSoulList();
+    appendMessage(
+      "ai",
+      "Whitescent Gen-" + soul.generation + " 가동 완료.\n외부 모듈 오류 없이 안정화되었습니다. 지금 바로 전송을 눌러 보거나, 우측에 규범/기억을 각인해 보세요.",
+      "시스템 초기화",
+      false
+    );
+  </script>
+</body>
+</html>
